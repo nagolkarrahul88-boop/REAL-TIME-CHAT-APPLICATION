@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>CODTECH Messenger</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial;
+  height: 100vh;
+  background: #d1d7db;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 30%;
+  background: white;
+  border-right: 1px solid #ccc;
+}
+
+.sidebar-header {
+  padding: 15px;
+  background: #075e54;
+  color: white;
+  font-weight: bold;
+}
+
+.user {
+  padding: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+
+.user:hover,
+.user.active {
+  background: #e9edef;
+  font-weight: bold;
+}
+
+/* Chat */
+.chat {
+  width: 70%;
+  display: flex;
+  flex-direction: column;
+  background: #efeae2;
+}
+
+.chat-header {
+  padding: 15px;
+  background: #075e54;
+  color: white;
+}
+
+.messages {
+  flex: 1;
+  padding: 15px;
+  overflow-y: auto;
+}
+
+.msg {
+  max-width: 60%;
+  padding: 8px;
+  margin-bottom: 8px;
+  border-radius: 7px;
+}
+
+.me {
+  background: #dcf8c6;
+  margin-left: auto;
+}
+
+.other {
+  background: white;
+}
+
+.input {
+  display: flex;
+  padding: 10px;
+  background: #f0f0f0;
+}
+
+.input input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+}
+
+.input button {
+  margin-left: 10px;
+  padding: 10px 20px;
+  border-radius: 20px;
+  border: none;
+  background: #25d366;
+  color: white;
+}
+
+/* =======================
+   LOGIN UI (MODERN)
+======================= */
+
+.login {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #075e54, #128c7e);
+}
+
+.login-box {
+  background: #ffffff;
+  padding: 35px 30px;
+  border-radius: 16px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  animation: fadeIn 0.6s ease;
+}
+
+.login-box h2 {
+  margin: 0;
+  text-align: center;
+  color: #075e54;
+  font-size: 24px;
+}
+
+.login-box p {
+  text-align: center;
+  color: #555;
+  font-size: 14px;
+}
+
+.login-box input {
+  padding: 12px 15px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+  outline: none;
+}
+
+.login-box input:focus {
+  border-color: #25d366;
+  box-shadow: 0 0 0 2px rgba(37, 211, 102, 0.2);
+}
+
+.login-box button {
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: #25d366;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.login-box button:hover {
+  background: #1ebe5d;
+  transform: translateY(-1px);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =========================
+   MOBILE RESPONSIVE STYLES
+========================= */
+
+@media (max-width: 768px) {
+  .app {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: 100vh;
+  }
+
+  .chat {
+    width: 100%;
+    height: 100vh;
+  }
+
+  /* Hide chat when no user selected */
+  .chat.hidden {
+    display: none;
+  }
+
+  /* Hide sidebar when chat is open */
+  .sidebar.hidden {
+    display: none;
+  }
+
+  .messages {
+    padding-bottom: 70px;
+  }
+
+  .input {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    left: 0;
+    box-sizing: border-box;
+  }
+
+  .chat-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .back-btn {
+    cursor: pointer;
+    font-size: 18px;
+  }
+}
+
+</style>
+</head>
+
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const socket = io("http://localhost:5000");
+
+// FIXED USERS
+const USERS = ["Jay", "Omkar", "Rahul", "Amit"];
+
+function App() {
+  const [username, setUsername] = React.useState("");
+  const [logged, setLogged] = React.useState(false);
+  const [selectedUser, setSelectedUser] = React.useState(null);
+  const [allMessages, setAllMessages] = React.useState([]);
+  const [text, setText] = React.useState("");
+  const msgRef = React.useRef();
+
+  /* 🔑 IMPORTANT FIX:
+     Store ALL incoming messages first
+     DO NOT filter here
+  */
+  React.useEffect(() => {
+    socket.on("chatHistory", (history) => {
+      setAllMessages(history);
+    });
+
+    socket.on("privateMessage", (msg) => {
+      setAllMessages(prev => [...prev, msg]);
+    });
+
+    return () => {
+      socket.off("chatHistory");
+      socket.off("privateMessage");
+    };
+  }, []);
+
+  // Auto-scroll
+  React.useEffect(() => {
+    msgRef.current?.scrollTo(0, msgRef.current.scrollHeight);
+  }, [allMessages, selectedUser]);
+
+  const login = () => {
+    if (!username.trim()) return;
+    socket.emit("join", username);
+    setLogged(true);
+  };
+
+  const openChat = (user) => {
+    setSelectedUser(user);
+    socket.emit("loadChat", { from: username, to: user });
+  };
+
+  const send = () => {
+    if (!text || !selectedUser) return;
+
+    socket.emit("privateMessage", {
+      from: username,
+      to: selectedUser,
+      text,
+      time: new Date().toLocaleTimeString(),
+    });
+
+    setText("");
+  };
+
+  if (!logged) {
+    return (
+        <div className="login">
+  <div className="login-box">
+    <h2>CODTECH Messenger</h2>
+    <p>Login to start chatting</p>
+
+    <input
+      placeholder="Enter your name"
+      onChange={e => setUsername(e.target.value)}
+      onKeyDown={e => e.key === "Enter" && login()}
+    />
+
+    <button onClick={login}>Continue</button>
+  </div>
+</div>
+
+    );
+  }
+
+  // 🔑 FILTER MESSAGES ONLY FOR OPEN CHAT
+  const visibleMessages = allMessages.filter(m =>
+    selectedUser &&
+    (
+      (m.from === username && m.to === selectedUser) ||
+      (m.from === selectedUser && m.to === username)
+    )
+  );
+
+  return (
+    <div className="app">
+        <div className={`sidebar ${selectedUser ? "hidden" : ""}`}>
+
+        <div className="sidebar-header">Chats</div>
+        {USERS.filter(u => u !== username).map(u => (
+          <div
+            key={u}
+            className={`user ${selectedUser === u ? "active" : ""}`}
+            onClick={() => openChat(u)}
+          >
+            {u}
+          </div>
+        ))}
+      </div>
+
+      <div className={`chat ${!selectedUser ? "hidden" : ""}`}>
+
+        <div className="chat-header">
+  {selectedUser && (
+    <span
+      className="back-btn"
+      onClick={() => setSelectedUser(null)}
+    >
+      ⬅
+    </span>
+  )}
+  {selectedUser || "Select a user"}
+</div>
+
+
+        <div className="messages" ref={msgRef}>
+          {visibleMessages.map((m, i) => (
+            <div
+              key={i}
+              className={`msg ${m.from === username ? "me" : "other"}`}
+            >
+              {m.text}
+            </div>
+          ))}
+        </div>
+
+        {selectedUser && (
+          <div className="input">
+            <input
+              value={text}
+              onChange={e => setText(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && send()}
+              placeholder="Type a message"
+            />
+            <button onClick={send}>Send</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById("root"));
+</script>
+</body>
+</html>
