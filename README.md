@@ -51,8 +51,8 @@ The CODTECH Messenger project successfully demonstrates the implementation of a 
 
 
 #OUTPUT
-
+<img width="1365" height="658" alt="Image" src="https://github.com/user-attachments/assets/a4348098-959c-43fe-a702-68d011b29335" />
 <img width="1365" height="659" alt="Image" src="https://github.com/user-attachments/assets/46800871-e7f8-4344-84b9-56a44bae0693" />
 <img width="1365" height="659" alt="Image" src="https://github.com/user-attachments/assets/2b2b034d-cdd6-4efd-8860-941076256a0a" />
 <img width="1365" height="658" alt="Image" src="https://github.com/user-attachments/assets/9ece6b96-1a7e-4172-9a82-1382ad9054d8" />
-<img width="1365" height="658" alt="Image" src="https://github.com/user-attachments/assets/a4348098-959c-43fe-a702-68d011b29335" />
+
